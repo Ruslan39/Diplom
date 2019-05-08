@@ -13,7 +13,7 @@ class Profile {
     createUser(callback) {
         console.log(`Creating user ${this.username}`);
 
-        return ApiConnector.createUser((this), (err, data) => {
+        return ApiConnector.createUser(this, (err, data) => {
             if (data) {
                 this.isCreated = true;
                 console.log(`${this.name.firstName} is created!`);
@@ -28,7 +28,7 @@ class Profile {
         if (this.isCreated === true) {
             console.log(`Authorizing user ${this.username}`);
 
-            return ApiConnector.performLogin((this), (err, data) => {
+            return ApiConnector.performLogin(this, (err, data) => {
                 if (data) {
                     this.isLogged = true;
                     console.log(`${this.name.firstName} is authorized!`);
@@ -59,60 +59,76 @@ class Profile {
         }
     }
 
-    convertMoney({fromCurrency, targetCurrency, targetAmount}, callback) {
+    convertMoney({fromCurrency, targetCurrency, targetAmount}, callback) {        
+        console.log(`Converting ${fromCurrency} to ${targetAmount} Netcoins`);
 
-        let getBestCourse = []; // Подбираем наименьший курс обмена
+        let currencyChange = (targetAmount * stocks[99][`NETCOIN_${fromCurrency}`]);
+        if (currencyChange > this.wallet[fromCurrency]) {
+            console.log(`Error during converting money: not enough money to complete the operation`);
 
-        for (let i = 0; i < stocks.length; i++) {
-            getBestCourse[i] = stocks[i][`NETCOIN_${fromCurrency}`];            
-        }
-        
-        let minCourse = Math.min.apply(null, getBestCourse);
+        } else {
+            return ApiConnector.convertMoney({fromCurrency, targetCurrency, targetAmount}, (err, data) => {
+                if (data) {
+                    this.wallet[fromCurrency] = this.wallet[fromCurrency] - currencyChange;
+                    this.wallet[targetCurrency] = targetAmount;
 
-        targetAmount = (this.wallet[fromCurrency] / minCourse);
-        console.log(`Converting ${fromCurrency} to ${targetAmount.toFixed(2)} Netcoins`);
-
-        return ApiConnector.convertMoney({fromCurrency, targetCurrency, targetAmount}, (err, data) => {
-            if (data) {
-                this.wallet[fromCurrency] = 0;
-                this.wallet[targetCurrency] = targetAmount;                
-                console.log(`Converted to coins`);              // почему здесь ${this}, например, не работает???
-                //console.log(this.wallet);                     // хотя здесь работает!
-                callback();
-            } else {
-                console.log(`Error during converting money`);
-            }
-        });
+                    let profileToPrint1 = 'Converted to coins';
+                    let profileToPrint2 = {
+                        name: this.name,
+                        wallet: this.wallet,
+                        username: this.username
+                    }
+                    console.log(profileToPrint1, profileToPrint2);
+                    
+                    callback();
+                } else {
+                    console.log(`Error during converting money`);
+                }
+            });
+        }        
     }
 
-    transferMoney({to, amount}) {
-        amount = +(this.wallet[NETCOIN]);
-        
-        return ApiConnector.transferMoney({to, amount}, (err, data) => {
-            if (data) {
-                this.wallet[NETCOIN] = 0;
-                [to].wallet[NETCOIN] = amount;
-                console.log(`${to} has got ${amount} NETCOINS`);
-            } else {
-                console.log(`Error during transfering money`);
-            }
-        });
+    transferMoney({to, amount}, callback) {
+        console.log(`Transfering ${amount} of Netcoins to ${to}`);
+
+        if (amount <= this.wallet.NETCOIN) {
+            return ApiConnector.transferMoney({to, amount}, (err, data) => {
+                if (data) {
+                    this.wallet.NETCOIN = this.wallet.NETCOIN - amount;
+                    this.wallet.NETCOIN = this.wallet.NETCOIN + amount;     // здесь должен быть Petya, но как получить доступ?
+                    
+                    console.log(`${this.name.firstName} has got ${amount} NETCOINS`);   // как получить доступ к Petya?
+                    callback();
+                } else {
+                    console.log(`Error during transfering money`);
+                }
+            });
+        } else {
+            console.log(`Not enough money to complete the operation`);
+        }
     }
 }
 
 let stocks = [];
 
-function getStocks() {
+function getStocks(callback) {
     return ApiConnector.getStocks((err, data) => {
         console.log(`Getting stocks info`);
-        
-        for (let i = 0; i < data.length; i++) {
-            stocks[i] = data[i];
-        }        
+
+        if (data) {
+            for (let i = 0; i < data.length; i++) {
+                stocks[i] = data[i];
+            }
+            callback();
+        } else {
+            console.log(`Error during getting Stocks info`);
+        }  
     });
 }
 
-getStocks();
+getStocks(function() {
+    main();
+});
 
 function main() {
     const Ivan = new Profile({
@@ -130,9 +146,12 @@ function main() {
     Ivan.createUser(function() {
         Ivan.performLogin(function() {
             Ivan.addMoney({currency: 'EUR', amount: 500000}, function() {
-                Ivan.convertMoney({fromCurrency: 'EUR', targetCurrency: 'NETCOIN', targetAmount: 0}, function() {
-                    Petya.createUser(function() {                        
-                        Ivan.transferMoney({to: 'Petya', amount: 0});
+                Ivan.convertMoney({fromCurrency: 'EUR', targetCurrency: 'NETCOIN', targetAmount: 2000}, function() {
+                    Petya.createUser(function() {
+                        Ivan.transferMoney({to: 'petya', amount: 1000}, function() {    //callback to be deleted
+                            console.log(Ivan);      //to be deleted
+                            console.log(Petya);     //to be deleted
+                        });
                     });
                 });
             });
@@ -140,5 +159,3 @@ function main() {
     });
    
 }
-
-main();
