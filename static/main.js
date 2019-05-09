@@ -19,7 +19,7 @@ class Profile {
                 console.log(`${this.name.firstName} is created!`);
                 callback();
             } else {
-                console.log(`Failed to create user. User ${this.name.firstName} already exists.`);
+                console.log(`Failed to create user ${this.name.firstName}`);
             }
         });
     }
@@ -95,10 +95,8 @@ class Profile {
             return ApiConnector.transferMoney({to, amount}, (err, data) => {
                 if (data) {
                     this.wallet.NETCOIN = this.wallet.NETCOIN - amount;
-                    this.wallet.NETCOIN = this.wallet.NETCOIN + amount;     // здесь должен быть Petya, но как получить доступ?
-                    
-                    console.log(`${this.name.firstName} has got ${amount} NETCOINS`);   // как получить доступ к Petya?
-                    callback();
+
+                    callback({to, amount});
                 } else {
                     console.log(`Error during transfering money`);
                 }
@@ -148,9 +146,13 @@ function main() {
             Ivan.addMoney({currency: 'EUR', amount: 500000}, function() {
                 Ivan.convertMoney({fromCurrency: 'EUR', targetCurrency: 'NETCOIN', targetAmount: 2000}, function() {
                     Petya.createUser(function() {
-                        Ivan.transferMoney({to: 'petya', amount: 1000}, function() {    //callback to be deleted
-                            console.log(Ivan);      //to be deleted
-                            console.log(Petya);     //to be deleted
+                        Ivan.transferMoney({to: 'petya', amount: 1000}, function({to, amount}) {                            
+                            if (Petya.wallet.NETCOIN > 0) {                                      // доступ вручную через Petya
+                                Petya.wallet.NETCOIN += amount;                                  // доступ вручную через Petya 
+                            } else {
+                                Petya.wallet.NETCOIN = amount;                                   // доступ вручную через Petya
+                            }                                               
+                            console.log(`${Petya.name.firstName} has got ${amount} NETCOINS`);   // доступ вручную через Petya
                         });
                     });
                 });
